@@ -2,7 +2,9 @@ package com.tinysx.chatart.skin;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -94,7 +96,7 @@ public class HeadRenderer {
         for (int x = 0; x < FACE_SIZE; x++) {
             int[] column = new int[FACE_SIZE];
             for (int y = 0; y < FACE_SIZE; y++) column[y] = face[x][y];
-            row.append(Component.text("█", toColor(avgColor(column))));
+            row.append(Component.text("█", toStyle(avgColor(column))));
         }
         return List.of(row.build());
     }
@@ -119,7 +121,7 @@ public class HeadRenderer {
                     }
                 }
                 char ch = buildBrailleChar(cell);
-                row.append(Component.text(String.valueOf(ch), toColor(avgColor(cell))));
+                row.append(Component.text(String.valueOf(ch), toStyle(avgColor(cell))));
             }
             rows.add(row.build());
         }
@@ -133,7 +135,7 @@ public class HeadRenderer {
         for (int y = 0; y < FACE_SIZE; y++) {
             TextComponent.Builder row = Component.text();
             for (int x = 0; x < FACE_SIZE; x++) {
-                row.append(Component.text("█", toColor(face[x][y])));
+                row.append(Component.text("█", toStyle(face[x][y])));
             }
             rows.add(row.build());
         }
@@ -201,6 +203,14 @@ public class HeadRenderer {
              + ( argb        & 0xFF) * 114 / 1000;
     }
 
+    private static Style toStyle(int argb) {
+        return Style.style(
+            TextColor.color((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF),
+            TextDecoration.BOLD
+        );
+    }
+
+    /** @deprecated Use toStyle — kept for any callers that still need a bare TextColor. */
     private static TextColor toColor(int argb) {
         return TextColor.color((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF);
     }

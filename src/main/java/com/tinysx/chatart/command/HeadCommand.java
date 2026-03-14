@@ -5,7 +5,6 @@ import com.tinysx.chatart.skin.HeadRenderer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -14,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -21,8 +21,8 @@ import java.util.stream.Collectors;
 /**
  * /head [player]
  *
- * Renders the target's 8×8 face in chat using colored full-block characters.
- * No resource pack required.
+ * Works for online players, players who have joined this server before,
+ * and any valid Minecraft account via the Mojang API lookup.
  */
 public class HeadCommand implements CommandExecutor, TabCompleter {
 
@@ -36,55 +36,62 @@ public class HeadCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command,
                              @NotNull String label, @NotNull String[] args) {
 
-        UUID targetUuid;
-        String targetName;
-
         if (args.length == 0) {
             if (!(sender instanceof Player p)) {
                 sender.sendMessage(Component.text("Usage: /head <player>", NamedTextColor.RED));
                 return true;
             }
-            targetUuid = p.getUniqueId();
-            targetName = p.getName();
-        } else {
-            Player online = Bukkit.getPlayer(args[0]);
-            if (online != null) {
-                targetUuid = online.getUniqueId();
-                targetName = online.getName();
-            } else {
-                @SuppressWarnings("deprecation")
-                OfflinePlayer offline = Bukkit.getOfflinePlayer(args[0]);
-                if (!offline.hasPlayedBefore()) {
-                    sender.sendMessage(Component.text("Player not found: " + args[0], NamedTextColor.RED));
-                    return true;
-                }
-                targetUuid = offline.getUniqueId();
-                targetName = offline.getName() != null ? offline.getName() : args[0];
-            }
+            sender.sendMessage(Component.text("Fetching your head...", NamedTextColor.GRAY));
+            fetchAndDisplay(sender, p.getUniqueId(), p.getName());
+            return true;
         }
 
-        sender.sendMessage(Component.text("Fetching head for " + targetName + "...", NamedTextColor.GRAY));
+        String targetName = args[0];
 
-        plugin.getSkinFetcher().getSkin(targetUuid).thenAcceptAsync(skin -> {
+        // Fast path: player is currently online
+        Player online = Bukkit.getPlayer(targetName);
+        if (online != null) {
+            sender.sendMessage(Component.text("Fetching head for " + online.getName() + "...", NamedTextColor.GRAY));
+            fetchAndDisplay(sender, online.getUniqueId(), online.getName());
+            return true;
+        }
+
+        // Slow path: resolve name → UUID via Mojang API (works for any valid account)
+        sender.sendMessage(Component.text("Looking up " + targetName + "...", NamedTextColor.GRAY));
+        plugin.getSkinFetcher().getUUIDByName(targetName).thenAcceptAsync(result -> {
+            if (result == null) {
+                sender.sendMessage(Component.text(
+                    "No Minecraft account found for '" + targetName + "'.", NamedTextColor.RED));
+                return;
+            }
+            String resolvedName = result[1];
+            UUID uuid = UUID.fromString(result[0]);
+            sender.sendMessage(Component.text("Fetching head for " + resolvedName + "...", NamedTextColor.GRAY));
+            fetchAndDisplay(sender, uuid, resolvedName);
+
+        }, r -> Bukkit.getScheduler().runTask(plugin, r));
+
+        return true;
+    }
+
+    private void fetchAndDisplay(CommandSender sender, UUID uuid, String name) {
+        plugin.getSkinFetcher().getSkin(uuid).thenAcceptAsync(skin -> {
             if (skin == null) {
-                sender.sendMessage(Component.text("Could not fetch skin for " + targetName + ".", NamedTextColor.RED));
+                sender.sendMessage(Component.text("Could not fetch skin for " + name + ".", NamedTextColor.RED));
                 return;
             }
 
-            // /head always shows in braille (2-row) for best quality
+            // /head always uses braille (2 rows) for richer detail even when mini mode is set
             HeadRenderer.Mode mode = HeadRenderer.Mode.of(
                 plugin.getConfig().getString("render-mode", "mini")
             );
-            // Upgrade mini to braille for the command so it shows more detail
             if (mode == HeadRenderer.Mode.MINI) mode = HeadRenderer.Mode.BRAILLE;
 
-            sender.sendMessage(Component.text("--- " + targetName + "'s Head ---", NamedTextColor.YELLOW));
+            sender.sendMessage(Component.text("--- " + name + "'s Head ---", NamedTextColor.YELLOW));
             HeadRenderer.renderRows(skin, mode).forEach(sender::sendMessage);
             sender.sendMessage(Component.text("---------------------------", NamedTextColor.YELLOW));
 
-        }, runnable -> Bukkit.getScheduler().runTask(plugin, runnable));
-
-        return true;
+        }, r -> Bukkit.getScheduler().runTask(plugin, r));
     }
 
     @Override

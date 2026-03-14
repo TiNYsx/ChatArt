@@ -24,7 +24,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class SkinFetcher {
 
-    private static final String PROFILE_URL = "https://sessionserver.mojang.com/session/minecraft/profile/";
+    private static final String PROFILE_URL  = "https://sessionserver.mojang.com/session/minecraft/profile/";
+    private static final String NAME_URL     = "https://api.mojang.com/users/profiles/minecraft/";
 
     private final ChatArt plugin;
     private final File cacheDir;
@@ -94,6 +95,32 @@ public class SkinFetcher {
 
             } catch (Exception e) {
                 plugin.getLogger().warning("Failed to fetch skin for " + uuid + ": " + e.getMessage());
+                return null;
+            }
+        });
+    }
+
+    /**
+     * Resolves a Minecraft username to a UUID via the Mojang API.
+     * Returns null if the name does not belong to any account.
+     * Also returns the canonical (correctly-cased) name via a String[2] {uuid, name}.
+     */
+    public CompletableFuture<String[]> getUUIDByName(String name) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                String json = get(NAME_URL + name);
+                if (json == null) return null;
+                JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+                String rawId = obj.get("id").getAsString();
+                String canonicalName = obj.get("name").getAsString();
+                // Insert dashes: 8-4-4-4-12
+                String uuidStr = rawId.replaceFirst(
+                    "(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})",
+                    "$1-$2-$3-$4-$5"
+                );
+                return new String[]{ uuidStr, canonicalName };
+            } catch (Exception e) {
+                plugin.getLogger().warning("UUID lookup failed for '" + name + "': " + e.getMessage());
                 return null;
             }
         });
