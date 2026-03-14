@@ -38,8 +38,11 @@ public class ChatListener implements Listener {
     }
 
     private HeadRenderer.Mode getMode() {
-        return HeadRenderer.Mode.of(plugin.getConfig().getString("render-mode", "mini"));
+        return HeadRenderer.Mode.of(plugin.getConfig().getString("render-mode", "braille"));
     }
+
+    private int getWidth()  { return plugin.getConfig().getInt("head-width", 20); }
+    private int getHeight() { return plugin.getConfig().getInt("head-height", 8); }
 
     // -------------------------------------------------------------------------
     // Join / Quit — prefetch skin so it's ready before the first chat message
@@ -51,10 +54,11 @@ public class ChatListener implements Listener {
         plugin.getSkinFetcher().getSkin(uuid).thenAccept(skin -> {
             if (skin == null) return;
             HeadRenderer.Mode mode = getMode();
-            // Hover always shows braille (2-row) for richer detail regardless of chat mode
+            int w = getWidth();
+            int h = getHeight();
             HeadRenderer.Mode hoverMode = mode == HeadRenderer.Mode.FULL ? HeadRenderer.Mode.BRAILLE : mode;
-            hoverCache.put(uuid, HeadRenderer.renderHover(skin, hoverMode));
-            rowCache.put(uuid, HeadRenderer.renderRows(skin, mode));
+            hoverCache.put(uuid, HeadRenderer.renderHover(skin, hoverMode, w, h));
+            rowCache.put(uuid, HeadRenderer.renderRows(skin, mode, w, h));
         });
     }
 

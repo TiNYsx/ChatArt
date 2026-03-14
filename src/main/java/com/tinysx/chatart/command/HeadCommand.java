@@ -81,14 +81,17 @@ public class HeadCommand implements CommandExecutor, TabCompleter {
                 return;
             }
 
-            // /head always uses braille (2 rows) for richer detail even when mini mode is set
+            // /head always uses braille for richer detail even when mini mode is set
             HeadRenderer.Mode mode = HeadRenderer.Mode.of(
-                plugin.getConfig().getString("render-mode", "mini")
+                plugin.getConfig().getString("render-mode", "braille")
             );
             if (mode == HeadRenderer.Mode.MINI) mode = HeadRenderer.Mode.BRAILLE;
 
+            int w = plugin.getConfig().getInt("head-width", 20);
+            int h = plugin.getConfig().getInt("head-height", 8);
+
             sender.sendMessage(Component.text("--- " + name + "'s Head ---", NamedTextColor.YELLOW));
-            HeadRenderer.renderRows(skin, mode).forEach(sender::sendMessage);
+            HeadRenderer.renderRows(skin, mode, w, h).forEach(sender::sendMessage);
             sender.sendMessage(Component.text("---------------------------", NamedTextColor.YELLOW));
 
         }, r -> Bukkit.getScheduler().runTask(plugin, r));
