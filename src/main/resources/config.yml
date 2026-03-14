@@ -1,13 +1,22 @@
 # ChatArt Configuration
-# Renders player heads as colored block characters — no resource pack needed!
+
+# How player heads are rendered in chat.
+#
+#   mini    — 1 row × 8 chars (default, emoji-like)
+#             Each block = average color of one vertical column.
+#
+#   braille — 2 rows × 4 chars, like Pictogram's MOTD rendering.
+#             Uses Braille dot patterns for fine luminance detail.
+#
+#   full    — 8 rows × 8 chars, one pixel per character (large).
+render-mode: mini
 
 # Hover over player names in chat to preview their head.
-# When enabled, the head thumbnail appears as a tooltip on the player's name.
 hover-head: true
 
-# Print the player's head (8 rows of colored blocks) above their chat messages.
-# Looks great but is a bit verbose — disabled by default.
+# Print the rendered head above every chat message.
+# Works best with render-mode: mini (adds only 1 line per message).
 show-head-in-chat: false
 
-# How long to cache downloaded skins before re-fetching from Mojang (in minutes).
+# How long to cache downloaded skins before re-fetching (minutes).
 skin-cache-minutes: 60

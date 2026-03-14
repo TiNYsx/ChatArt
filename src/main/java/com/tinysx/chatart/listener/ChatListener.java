@@ -14,7 +14,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
-import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,9 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Handles chat formatting and skin prefetching on player join.
  *
- * Two modes (configured in config.yml):
- *   hover-head      — hovering over a player's name in chat shows their 8×8 head.
- *   show-head-in-chat — prints the full 8-row head above each chat message.
+ * Render mode is read from config.yml (render-mode: mini / braille / full).
+ * hover-head      — hovering over a player's name shows their head as a tooltip.
+ * show-head-in-chat — prints the head above each chat message.
  */
 public class ChatListener implements Listener {
 
@@ -38,6 +37,10 @@ public class ChatListener implements Listener {
         this.plugin = plugin;
     }
 
+    private HeadRenderer.Mode getMode() {
+        return HeadRenderer.Mode.of(plugin.getConfig().getString("render-mode", "mini"));
+    }
+
     // -------------------------------------------------------------------------
     // Join / Quit — prefetch skin so it's ready before the first chat message
     // -------------------------------------------------------------------------
@@ -47,8 +50,11 @@ public class ChatListener implements Listener {
         UUID uuid = event.getPlayer().getUniqueId();
         plugin.getSkinFetcher().getSkin(uuid).thenAccept(skin -> {
             if (skin == null) return;
-            hoverCache.put(uuid, HeadRenderer.renderHover(skin));
-            rowCache.put(uuid, HeadRenderer.renderRows(skin));
+            HeadRenderer.Mode mode = getMode();
+            // Hover always shows braille (2-row) for richer detail regardless of chat mode
+            HeadRenderer.Mode hoverMode = mode == HeadRenderer.Mode.FULL ? HeadRenderer.Mode.BRAILLE : mode;
+            hoverCache.put(uuid, HeadRenderer.renderHover(skin, hoverMode));
+            rowCache.put(uuid, HeadRenderer.renderRows(skin, mode));
         });
     }
 
@@ -81,7 +87,7 @@ public class ChatListener implements Listener {
             );
         }
 
-        // Print the full 8-row head above the chat message for all online players
+        // Print the rendered head above the chat message for all online players
         if (showInChat && rowCache.containsKey(uuid)) {
             List<Component> rows = rowCache.get(uuid);
             String name = event.getPlayer().getName();
