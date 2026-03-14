@@ -1,0 +1,13 @@
+# ChatArt Configuration
+# Renders player heads as colored block characters — no resource pack needed!
+
+# Hover over player names in chat to preview their head.
+# When enabled, the head thumbnail appears as a tooltip on the player's name.
+hover-head: true
+
+# Print the player's head (8 rows of colored blocks) above their chat messages.
+# Looks great but is a bit verbose — disabled by default.
+show-head-in-chat: false
+
+# How long to cache downloaded skins before re-fetching from Mojang (in minutes).
+skin-cache-minutes: 60

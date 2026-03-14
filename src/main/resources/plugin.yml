@@ -1,0 +1,25 @@
+name: ChatArt
+version: '${project.version}'
+main: com.tinysx.chatart.ChatArt
+api-version: '1.21'
+description: Display player heads in Minecraft chat without resource packs
+authors:
+  - tinysx
+
+commands:
+  head:
+    description: Display a player's head rendered in chat
+    usage: /head [player]
+    permission: chatart.head
+  chatart:
+    description: ChatArt admin commands
+    usage: /chatart <reload>
+    permission: chatart.admin
+
+permissions:
+  chatart.head:
+    description: Allows using /head command
+    default: true
+  chatart.admin:
+    description: Allows admin commands (reload)
+    default: op
