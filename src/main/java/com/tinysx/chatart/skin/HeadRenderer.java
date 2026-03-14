@@ -11,20 +11,35 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Converts a Minecraft skin texture into Adventure text components.
+ * Renders a Minecraft skin face as Adventure text components using Braille
+ * Unicode characters (U+2800–U+28FF) with per-character hex colors.
  *
- * Three rendering modes (set via config.yml render-mode):
+ * Two key techniques (same as Pictogram):
+ *  1. ShadowColor.none() — disables the 1-pixel drop shadow Minecraft adds to
+ *     all chat text. That shadow bleeds past each character's edge and creates
+ *     the apparent gap between adjacent colored blocks.
+ *  2. Scaling before rendering — the raw 8×8 face is too few characters to
+ *     look good. We scale it up with nearest-neighbor interpolation first so
+ *     there are enough characters to produce a recognisable image.
  *
- *   MINI    — 1 row × 8 chars  — default, emoji-like
- *             Each █ = average color of one 1×8 face column.
+ * Render modes (config.yml → render-mode):
  *
- *   BRAILLE — 2 rows × 4 chars — like Pictogram's MOTD rendering
- *             Each ⣿ = average color of a 2×4 pixel cell.
- *             Braille dot pattern encodes luminance detail within the cell.
+ *   braille (default)
+ *     Face scaled 2× to 16×16 → Braille applied → 8 chars × 4 rows.
+ *     Each Braille cell covers 1 original column × 2 original rows.
+ *     Good balance between compactness and quality.
  *
- *   FULL    — 8 rows × 8 chars — original, one █ per pixel (large).
+ *   mini
+ *     Face squished to 16×4 → Braille applied → 8 chars × 1 row.
+ *     Each Braille cell covers 1 original column × all 8 rows (sampled).
+ *     The dot pattern encodes the column's vertical luminance structure.
+ *     One chat line, recognisable palette, minimal vertical detail.
  *
- * Face region in a standard 64×64 skin:
+ *   full
+ *     Raw 8×8 face, one █ per pixel → 8 chars × 8 rows.
+ *     Maximum fidelity, most vertical space.
+ *
+ * Face region in a standard 64×64 Minecraft skin:
  *   Base layer:    x = 8..15,  y = 8..15
  *   Overlay layer: x = 40..47, y = 8..15
  */
@@ -36,8 +51,8 @@ public class HeadRenderer {
     private static final int OVERLAY_Y = 8;
     private static final int FACE_SIZE = 8;
 
-    // ── Braille bit map ───────────────────────────────────────────────────────
-    // Braille U+2800 + pattern.  Dot positions in a 2-col × 4-row cell:
+    // Braille U+2800 + pattern.
+    // Dots are arranged in a 2-column × 4-row grid; index = row*2 + col.
     //   col 0, row 0 → dot 1 → bit 0x01
     //   col 0, row 1 → dot 2 → bit 0x02
     //   col 0, row 2 → dot 3 → bit 0x04
@@ -46,13 +61,11 @@ public class HeadRenderer {
     //   col 1, row 2 → dot 6 → bit 0x20
     //   col 0, row 3 → dot 7 → bit 0x40
     //   col 1, row 3 → dot 8 → bit 0x80
-    //
-    // Index layout in our pixel arrays: [row * 2 + col]
     private static final int[] BRAILLE_BITS = {
-        0x01, 0x08,  // row 0: col0, col1
-        0x02, 0x10,  // row 1
-        0x04, 0x20,  // row 2
-        0x40, 0x80   // row 3
+        0x01, 0x08,   // row 0 : col0, col1
+        0x02, 0x10,   // row 1
+        0x04, 0x20,   // row 2
+        0x40, 0x80    // row 3
     };
 
     public enum Mode {
@@ -60,9 +73,9 @@ public class HeadRenderer {
 
         public static Mode of(String name) {
             return switch (name.toLowerCase()) {
-                case "braille" -> BRAILLE;
-                case "full"    -> FULL;
-                default        -> MINI;
+                case "mini" -> MINI;
+                case "full" -> FULL;
+                default     -> BRAILLE;   // braille is the default
             };
         }
     }
@@ -89,43 +102,22 @@ public class HeadRenderer {
     }
 
     // ── MINI — 1 row × 8 chars ────────────────────────────────────────────────
-    // Each █ represents one column of the face with the column's average color.
+    // Squish the 8×8 face to 16×4 (2× wide, ½ tall), then Braille.
+    // Each resulting char covers exactly 1 original face column × 4 sampled rows.
+    // The Braille dot pattern encodes which rows in that column are darker.
 
     private static List<Component> renderMini(int[][] face) {
-        TextComponent.Builder row = Component.text();
-        for (int x = 0; x < FACE_SIZE; x++) {
-            int[] column = new int[FACE_SIZE];
-            for (int y = 0; y < FACE_SIZE; y++) column[y] = face[x][y];
-            row.append(Component.text("█", toStyle(avgColor(column))));
-        }
-        return List.of(row.build());
+        int[][] scaled = scaleNearest(face, 16, 4);
+        return renderBrailleGrid(scaled, 16, 4);
     }
 
-    // ── BRAILLE — 2 rows × 4 chars ────────────────────────────────────────────
-    // Each cell covers 2 px wide × 4 px tall.  The Braille dot pattern encodes
-    // luminance contrast within the cell; foreground = average cell color.
+    // ── BRAILLE — 4 rows × 8 chars ────────────────────────────────────────────
+    // Scale the face 2× to 16×16, then Braille.
+    // Each resulting char covers 1 original column × 2 original rows.
 
     private static List<Component> renderBraille(int[][] face) {
-        int cellsX = FACE_SIZE / 2; // 4
-        int cellsY = FACE_SIZE / 4; // 2
-
-        List<Component> rows = new ArrayList<>(cellsY);
-        for (int cy = 0; cy < cellsY; cy++) {
-            TextComponent.Builder row = Component.text();
-            for (int cx = 0; cx < cellsX; cx++) {
-                // Collect the 8 pixels of this 2×4 cell in [row*2+col] order
-                int[] cell = new int[8];
-                for (int row2 = 0; row2 < 4; row2++) {
-                    for (int col = 0; col < 2; col++) {
-                        cell[row2 * 2 + col] = face[cx * 2 + col][cy * 4 + row2];
-                    }
-                }
-                char ch = buildBrailleChar(cell);
-                row.append(Component.text(String.valueOf(ch), toStyle(avgColor(cell))));
-            }
-            rows.add(row.build());
-        }
-        return rows;
+        int[][] scaled = scaleNearest(face, 16, 16);
+        return renderBrailleGrid(scaled, 16, 16);
     }
 
     // ── FULL — 8 rows × 8 chars ───────────────────────────────────────────────
@@ -142,29 +134,70 @@ public class HeadRenderer {
         return rows;
     }
 
+    // ── Core Braille engine ───────────────────────────────────────────────────
+
+    /**
+     * Converts an arbitrary pixel grid into Braille text components.
+     * {@code width} must be divisible by 2; {@code height} must be divisible by 4.
+     */
+    private static List<Component> renderBrailleGrid(int[][] px, int width, int height) {
+        int cellsX = width  / 2;
+        int cellsY = height / 4;
+        List<Component> rows = new ArrayList<>(cellsY);
+        for (int cy = 0; cy < cellsY; cy++) {
+            TextComponent.Builder row = Component.text();
+            for (int cx = 0; cx < cellsX; cx++) {
+                // Gather the 8 pixels of this 2×4 cell in [row*2+col] order
+                int[] cell = new int[8];
+                for (int dr = 0; dr < 4; dr++) {
+                    for (int dc = 0; dc < 2; dc++) {
+                        cell[dr * 2 + dc] = px[cx * 2 + dc][cy * 4 + dr];
+                    }
+                }
+                char ch = brailleChar(cell);
+                row.append(Component.text(String.valueOf(ch), toStyle(avgColor(cell))));
+            }
+            rows.add(row.build());
+        }
+        return rows;
+    }
+
+    // ── Scaling ───────────────────────────────────────────────────────────────
+
+    /** Nearest-neighbour scale from FACE_SIZE × FACE_SIZE to dstW × dstH. */
+    private static int[][] scaleNearest(int[][] face, int dstW, int dstH) {
+        int[][] dst = new int[dstW][dstH];
+        for (int x = 0; x < dstW; x++) {
+            for (int y = 0; y < dstH; y++) {
+                dst[x][y] = face[x * FACE_SIZE / dstW][y * FACE_SIZE / dstH];
+            }
+        }
+        return dst;
+    }
+
     // ── Braille helpers ───────────────────────────────────────────────────────
 
     /**
      * Builds a Braille character from 8 ARGB pixels (indexed [row*2+col]).
-     * Pixels darker than the cell average become filled dots.
-     * Falls back to U+28FF (all dots) when the pattern would be empty.
+     * Pixels darker than the cell average become filled dots, giving the
+     * character a luminance-accurate dot pattern. Falls back to U+28FF
+     * (all dots) when all pixels have the same brightness.
      */
-    private static char buildBrailleChar(int[] cell) {
-        int avgBright = 0;
-        for (int c : cell) avgBright += luma(c);
-        avgBright /= cell.length;
+    private static char brailleChar(int[] cell) {
+        int avg = 0;
+        for (int c : cell) avg += luma(c);
+        avg /= cell.length;
 
         int pattern = 0;
         for (int i = 0; i < cell.length; i++) {
-            if (luma(cell[i]) < avgBright) pattern |= BRAILLE_BITS[i];
+            if (luma(cell[i]) < avg) pattern |= BRAILLE_BITS[i];
         }
-        // If nothing would be drawn (uniform cell), render as full block
         return pattern == 0 ? '\u28FF' : (char) (0x2800 + pattern);
     }
 
     // ── Pixel helpers ─────────────────────────────────────────────────────────
 
-    /** Extracts and alpha-blends the 8×8 face into a [x][y] ARGB array. */
+    /** Extracts and alpha-blends the 8×8 face into a face[x][y] ARGB array. */
     private static int[][] extractFace(BufferedImage skin) {
         int[][] face = new int[FACE_SIZE][FACE_SIZE];
         for (int x = 0; x < FACE_SIZE; x++) {
@@ -196,17 +229,14 @@ public class HeadRenderer {
         return (0xFF << 24) | ((int)(r/n) << 16) | ((int)(g/n) << 8) | (int)(b/n);
     }
 
+    /** BT.601 perceived brightness (0–255). */
     private static int luma(int argb) {
-        // BT.601 perceived brightness
         return ((argb >> 16) & 0xFF) * 299 / 1000
              + ((argb >>  8) & 0xFF) * 587 / 1000
              + ( argb        & 0xFF) * 114 / 1000;
     }
 
-    // ShadowColor.none() disables Minecraft's default 1-pixel drop shadow.
-    // That shadow is what makes adjacent colored characters appear separated —
-    // the dark shadow bleeds past the character edge and creates a visible gap.
-    // Pictogram uses the same technique: explicitly set shadow to none.
+    /** Color + no shadow. ShadowColor.none() is what eliminates inter-character gaps. */
     private static Style toStyle(int argb) {
         return Style.style(
             TextColor.color((argb >> 16) & 0xFF, (argb >> 8) & 0xFF, argb & 0xFF),
