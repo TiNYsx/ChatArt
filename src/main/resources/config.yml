@@ -1,21 +1,12 @@
 # ChatArt Configuration
 
-# Render mode:
-#   braille (default) — Braille characters with hex colours, like Pictogram
-#   mini              — same but forced to 1 row (ignores head-height)
-#   full              — raw 8×8 using █ blocks (ignores head-width / head-height)
+# Render mode for player heads:
+#   braille (default) — configurable dimensions using solid blocks
+#   mini              — single row (ignores head-height)
+#   full              — raw 8×8 blocks (ignores head-width / head-height)
 render-mode: braille
 
-# Output dimensions of the rendered head (Braille characters wide × text rows tall).
-# Wider  = more horizontal detail.
-# Taller = more vertical detail.
-# Each Braille character covers a 2×4 pixel cell of the scaled face image.
-#
-# Examples:
-#   20 × 8  — detailed, good for /head command (default)
-#   20 × 4  — compact
-#   30 × 8  — very wide, Pictogram-like
-#   10 × 4  — small emoji-like
+# Output dimensions of the rendered head (characters wide × text rows tall).
 head-width: 20
 head-height: 8
 
@@ -27,3 +18,14 @@ show-head-in-chat: false
 
 # How long to cache downloaded skins before re-fetching (minutes).
 skin-cache-minutes: 60
+
+# ── Custom Emoji ──────────────────────────────────────────────────────────
+# Place PNG/JPG images in plugins/ChatArt/images/ and use :name: in chat.
+# The file name (without extension) becomes the emoji name.
+
+# Width (in characters) of inline emoji shown in chat.
+emoji-width: 8
+
+# Dimensions for /chatart preview output.
+emoji-preview-width: 20
+emoji-preview-height: 10

@@ -2,7 +2,7 @@ name: ChatArt
 version: '${project.version}'
 main: com.tinysx.chatart.ChatArt
 api-version: '1.21'
-description: Display player heads in Minecraft chat without resource packs
+description: Display player heads and custom emoji in Minecraft chat without resource packs
 authors:
   - tinysx
 
@@ -13,7 +13,7 @@ commands:
     permission: chatart.head
   chatart:
     description: ChatArt admin commands
-    usage: /chatart <reload>
+    usage: /chatart <reload|list|preview <name>>
     permission: chatart.admin
 
 permissions:
@@ -21,5 +21,5 @@ permissions:
     description: Allows using /head command
     default: true
   chatart.admin:
-    description: Allows admin commands (reload)
+    description: Allows admin commands (reload, list, preview)
     default: op
