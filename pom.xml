@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>ChatArt</name>
-    <description>Display player heads in Minecraft chat without resource packs</description>
+    <description>Display player heads and custom emoji in Minecraft chat without resource packs</description>
 
     <properties>
         <java.version>21</java.version>
@@ -23,13 +23,17 @@
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
+        <repository>
+            <id>inventive</id>
+            <url>https://repo.inventivetalent.org/repository/public/</url>
+        </repository>
     </repositories>
 
     <dependencies>
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <version>1.21.4-R0.1-SNAPSHOT</version>
+            <version>1.21.11-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
         <!-- Gson is bundled with Minecraft/Paper at runtime -->
@@ -38,6 +42,17 @@
             <artifactId>gson</artifactId>
             <version>2.10.1</version>
             <scope>provided</scope>
+        </dependency>
+        <!-- MineSkin Java client for uploading custom skin textures -->
+        <dependency>
+            <groupId>org.mineskin</groupId>
+            <artifactId>java-client</artifactId>
+            <version>3.2.1-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.mineskin</groupId>
+            <artifactId>java-client-java11</artifactId>
+            <version>3.2.1-SNAPSHOT</version>
         </dependency>
     </dependencies>
 
@@ -65,6 +80,12 @@
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <finalName>ChatArt-${project.version}</finalName>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.mineskin</pattern>
+                                    <shadedPattern>com.tinysx.chatart.lib.mineskin</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>

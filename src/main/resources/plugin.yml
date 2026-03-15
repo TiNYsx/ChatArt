@@ -2,7 +2,7 @@ name: ChatArt
 version: '${project.version}'
 main: com.tinysx.chatart.ChatArt
 api-version: '1.21'
-description: Display player heads and custom emoji in Minecraft chat without resource packs
+description: Display player heads, custom emoji, and image MOTDs in Minecraft — no resource packs needed
 authors:
   - tinysx
 

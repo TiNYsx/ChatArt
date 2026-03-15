@@ -1,31 +1,50 @@
 # ChatArt Configuration
 
-# Render mode for player heads:
-#   braille (default) — configurable dimensions using solid blocks
-#   mini              — single row (ignores head-height)
-#   full              — raw 8×8 blocks (ignores head-width / head-height)
+# ── MineSkin API ──────────────────────────────────────────────────────────
+# Required for MOTD images and compact head-icon emoji.
+# Get a free key at https://account.mineskin.org/
+# Without this, emoji falls back to solid block rendering.
+mineskin-key: ""
+
+# ── MOTD ──────────────────────────────────────────────────────────────────
+motd:
+  enabled: false
+  # Image file in plugins/ChatArt/images/ (e.g. "motd.png")
+  image: ""
+  # MiniMessage fallback when image is not ready or MineSkin is not configured
+  fallback-description:
+    - "<gray>A Minecraft Server"
+    - "<gray>Powered by ChatArt"
+
+# ── Player Head Rendering ────────────────────────────────────────────────
+# Render mode for solid block fallback (hover previews):
+#   braille (default) — configurable dimensions
+#   mini              — single row
+#   full              — raw 8×8
 render-mode: braille
 
-# Output dimensions of the rendered head (characters wide × text rows tall).
+# Solid block dimensions for hover preview
 head-width: 20
 head-height: 8
 
-# Hover over player names in chat to preview their head.
+# Hover over player names to preview their head (solid block grid)
 hover-head: true
 
-# Print the rendered head above every chat message.
+# Show inline player head icon before each chat message
+# Uses ObjectComponent (tiny head icon) when player texture is available
 show-head-in-chat: false
 
-# How long to cache downloaded skins before re-fetching (minutes).
+# How long to cache downloaded skins before re-fetching (minutes)
 skin-cache-minutes: 60
 
 # ── Custom Emoji ──────────────────────────────────────────────────────────
 # Place PNG/JPG images in plugins/ChatArt/images/ and use :name: in chat.
-# The file name (without extension) becomes the emoji name.
+# With MineSkin: renders as seamless head icon grid (Pictogram-style)
+# Without MineSkin: renders as solid block text (fallback)
 
-# Width (in characters) of inline emoji shown in chat.
+# Fallback solid block width for inline emoji
 emoji-width: 8
 
-# Dimensions for /chatart preview output.
+# Fallback dimensions for /chatart preview
 emoji-preview-width: 20
 emoji-preview-height: 10
